@@ -1,0 +1,7 @@
+[package]
+name = "dbg"
+edition = "2024"
+version.workspace = true
+
+[dependencies]
+libdbg = { path = "../libdbg" }
