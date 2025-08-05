@@ -4,4 +4,5 @@ edition = "2024"
 version.workspace = true
 
 [dependencies]
+clap = { version = "4.5.42", features = ["derive"] }
 libdbg = { path = "../libdbg" }

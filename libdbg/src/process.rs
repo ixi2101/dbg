@@ -1,6 +1,6 @@
-use std::{env::Args, ffi::{CStr, CString}, os::unix::process::CommandExt, process, str::FromStr, thread::sleep, time::Duration};
-use nix::{errno, sys::{ptrace, wait::{self, waitpid, WaitPidFlag}}, unistd::{execvp, execvpe, fork, ForkResult, Pid}};
-use libc::{pid_t, PTRACE_ATTACH, PTRACE_O_TRACEEXEC, WCONTINUED};
+use std::{ffi::CStr, os::unix::process::CommandExt, process::{self, Command}, thread::sleep, time::Duration};
+use nix::{errno, sys::{ptrace, wait::waitpid}, unistd::{execvp, fork, ForkResult, Pid}};
+use anyhow::{Context, Result};
 
 
 /// Attach to a PID and return the PID
@@ -13,7 +13,7 @@ pub fn attach(pid: i32) -> Result<Pid, errno::Errno>{
 }
 
 /// Run and attach to a process
-pub fn exec_attach(argv: Vec<&CStr>) -> Result<Pid, errno::Errno>{
+pub fn exec_attach(progname: String) -> Result<Pid, errno::Errno>{
     // Assume argv[0] is the desired program name
     match unsafe {fork()}{
         Ok(ForkResult::Parent { child, ..}) => {
@@ -29,9 +29,29 @@ pub fn exec_attach(argv: Vec<&CStr>) -> Result<Pid, errno::Errno>{
             // We are the child. Become the debuggee
             println!("Exec child pid: {}", process::id());
             ptrace::traceme().expect("PTRACEME failed !");
-            execvp(argv[0], &argv[1..]).unwrap();
+            let _ = Command::new(progname).exec();
             unreachable!("EXECVP FAIL");
         },
         Err(e) => {return Err(e);}
+    }
+}
+
+enum ProcessState{
+    UNKNOWN,
+}
+
+pub struct Process {
+    pub pid: Pid,
+    state: ProcessState
+}
+impl Process {
+    pub fn launch_process(program_name: String) -> Result<Process> {
+        let pid_ = exec_attach(program_name)?;
+        Ok(Process{pid: pid_, state: ProcessState::UNKNOWN})
+    }
+
+    pub fn attach_process(pid: i32) -> Result<Process> {
+        let pid_ = attach(pid)?;
+        Ok(Process{pid: pid_, state: ProcessState::UNKNOWN})
     }
 }
